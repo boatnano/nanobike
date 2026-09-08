@@ -1,0 +1,17 @@
+{
+  "name": "nanobike",
+  "short_name": "นาโน Bike",
+  "description": "ฝากซื้อชุมชนสมุทรสงคราม",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f8f5",
+  "theme_color": "#14212b",
+  "lang": "th",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.turbo/
+.env
+.env.local
+.env*.local
+dist/
+coverage/
+*.log
+.DS_Store
+.vercel
+supabase/.temp/
+apps/web/node_modules/
+apps/web/.next/
