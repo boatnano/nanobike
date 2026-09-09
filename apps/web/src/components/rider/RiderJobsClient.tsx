@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getRiderInbox, type RiderInboxJob } from "@/app/rider/actions";
+import { NavigateToDropoffButton, NavigateToShopButton } from "@/components/rider/NavigateButtons";
 import { RiderJobActions } from "@/components/rider/RiderJobActions";
 import { roadmapHint } from "@/lib/roadmap";
 
@@ -95,6 +96,19 @@ export function RiderJobsClient() {
             </p>
             {job.status === "pending_rider" ? (
               <RiderJobActions jobId={job.id} />
+            ) : null}
+            {(job.status === "going_to_shop" || job.status === "at_shop") && (
+              <NavigateToShopButton
+                lat={job.shop_lat}
+                lng={job.shop_lng}
+                shopName={job.shop_name}
+              />
+            )}
+            {job.status === "delivering" ? (
+              <NavigateToDropoffButton
+                lat={job.dropoff_lat}
+                lng={job.dropoff_lng}
+              />
             ) : null}
           </li>
         ))}

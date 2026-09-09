@@ -64,6 +64,10 @@ export async function upsertRiderLocation(input: {
 export type RiderInboxJob = {
   id: string;
   shop_name: string;
+  shop_lat: number;
+  shop_lng: number;
+  dropoff_lat: number;
+  dropoff_lng: number;
   status: string;
   delivery_fee: number | null;
   shopping_list: string;
@@ -88,7 +92,7 @@ export async function getRiderInbox(): Promise<{
     supabase
       .from("jobs")
       .select(
-        "id, shop_name, status, delivery_fee, shopping_list, dropoff_address, accept_deadline_at, created_at",
+        "id, shop_name, shop_lat, shop_lng, dropoff_lat, dropoff_lng, status, delivery_fee, shopping_list, dropoff_address, accept_deadline_at, created_at",
       )
       .eq("rider_id", profile.id)
       .in("status", [

@@ -8,6 +8,7 @@ import {
   type RiderInboxJob,
 } from "@/app/rider/actions";
 import { JobRoadmap } from "@/components/JobRoadmap";
+import { NavigateToDropoffButton, NavigateToShopButton } from "@/components/rider/NavigateButtons";
 import { RiderJobActions } from "@/components/rider/RiderJobActions";
 import { notify, requestNotifyPermission } from "@/lib/notify";
 
@@ -149,14 +150,30 @@ export function RiderHomeClient({
       )}
 
       {active ? (
-        <Link
-          href="/rider/jobs"
-          className="mb-4 block rounded-2xl border border-[var(--line)] bg-white/85 px-4 py-3"
-        >
+        <div className="mb-4 rounded-2xl border border-[var(--line)] bg-white/85 px-4 py-3">
           <p className="text-xs text-[var(--muted)]">งานปัจจุบัน</p>
           <p className="font-semibold">{active.shop_name}</p>
           <p className="text-sm">{active.shopping_list}</p>
-        </Link>
+          {(active.status === "going_to_shop" || active.status === "at_shop") && (
+            <NavigateToShopButton
+              lat={active.shop_lat}
+              lng={active.shop_lng}
+              shopName={active.shop_name}
+            />
+          )}
+          {active.status === "delivering" ? (
+            <NavigateToDropoffButton
+              lat={active.dropoff_lat}
+              lng={active.dropoff_lng}
+            />
+          ) : null}
+          <Link
+            href="/rider/jobs"
+            className="mt-2 block text-center text-sm font-medium underline"
+          >
+            ดูรายละเอียดงาน
+          </Link>
+        </div>
       ) : null}
 
       <label className="mb-4 flex items-center justify-between rounded-2xl border border-[var(--line)] bg-white/85 px-4 py-3">
