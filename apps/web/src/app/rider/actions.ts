@@ -16,7 +16,6 @@ export async function setRiderAvailability(isAvailable: boolean) {
     throw new Error("ต้องผ่านการอนุมัติก่อนเปิดรับงาน");
   }
 
-  // PromptPay จะบังคับเต็มก่อนเปิดรับงานจริง — ช่วงทดสอบแอดมินข้ามได้
   if (isAvailable && profile.role !== "admin" && !rider.promptpay_id) {
     throw new Error("กรุณาใส่พร้อมเพย์ในบัญชีก่อนเปิดรับงาน");
   }
@@ -60,4 +59,61 @@ export async function upsertRiderLocation(input: {
 
   if (error) throw new Error(error.message);
   revalidatePath("/rider/map");
+}
+
+export type RiderInboxJob = {
+  id: string;
+  shop_name: string;
+  status: string;
+  delivery_fee: number | null;
+  shopping_list: string;
+  dropoff_address: string;
+  accept_deadline_at: string | null;
+  created_at: string;
+};
+
+export async function getRiderInbox(): Promise<{
+  available: boolean;
+  incoming: RiderInboxJob[];
+  active: RiderInboxJob | null;
+}> {
+  const { supabase, profile } = await requireRiderActor();
+
+  const [{ data: rider }, { data: jobs, error }] = await Promise.all([
+    supabase
+      .from("rider_profiles")
+      .select("is_available")
+      .eq("user_id", profile.id)
+      .maybeSingle(),
+    supabase
+      .from("jobs")
+      .select(
+        "id, shop_name, status, delivery_fee, shopping_list, dropoff_address, accept_deadline_at, created_at",
+      )
+      .eq("rider_id", profile.id)
+      .in("status", [
+        "pending_rider",
+        "going_to_shop",
+        "at_shop",
+        "quote_pending",
+        "awaiting_payment",
+        "paid_pending",
+        "shopping",
+        "delivering",
+      ])
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+
+  if (error) throw new Error(error.message);
+
+  const list = (jobs ?? []) as RiderInboxJob[];
+  const incoming = list.filter((j) => j.status === "pending_rider");
+  const active = list.find((j) => j.status !== "pending_rider") ?? null;
+
+  return {
+    available: Boolean(rider?.is_available),
+    incoming,
+    active,
+  };
 }

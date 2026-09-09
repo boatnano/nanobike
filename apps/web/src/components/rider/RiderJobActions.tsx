@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { acceptJob, rejectJob } from "@/app/rider/job-actions";
 
 export function RiderJobActions({ jobId }: { jobId: string }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -16,6 +18,7 @@ export function RiderJobActions({ jobId }: { jobId: string }) {
           startTransition(async () => {
             try {
               await acceptJob(jobId);
+              router.refresh();
             } catch (err) {
               alert(err instanceof Error ? err.message : "รับงานไม่สำเร็จ");
             }
@@ -32,6 +35,7 @@ export function RiderJobActions({ jobId }: { jobId: string }) {
           startTransition(async () => {
             try {
               await rejectJob(jobId);
+              router.refresh();
             } catch (err) {
               alert(err instanceof Error ? err.message : "ปฏิเสธไม่สำเร็จ");
             }
