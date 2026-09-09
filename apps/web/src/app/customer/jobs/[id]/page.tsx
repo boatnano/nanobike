@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CustomerQuoteActions } from "@/components/customer/CustomerQuoteActions";
 import { JobRoadmap } from "@/components/JobRoadmap";
 import { RoleModeNav } from "@/components/RoleModeNav";
 import { requireCustomerActor } from "@/lib/auth";
@@ -23,14 +24,27 @@ export default async function CustomerJobDetailPage({
   if (!job) notFound();
 
   let riderName: string | null = null;
+  let riderPromptpay: string | null = null;
   if (job.rider_id && job.status !== "pending_rider") {
-    const { data: rider } = await supabase
-      .from("profiles")
-      .select("full_name, phone")
-      .eq("id", job.rider_id)
-      .maybeSingle();
+    const [{ data: rider }, { data: riderProf }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, phone")
+        .eq("id", job.rider_id)
+        .maybeSingle(),
+      supabase
+        .from("rider_profiles")
+        .select("promptpay_id")
+        .eq("user_id", job.rider_id)
+        .maybeSingle(),
+    ]);
     riderName = rider ? `${rider.full_name} · ${rider.phone}` : null;
+    riderPromptpay = riderProf?.promptpay_id ?? null;
   }
+
+  const goods = Number(job.goods_confirmed ?? job.goods_quote ?? 0);
+  const fee = Number(job.delivery_fee ?? 0);
+  const total = goods + fee;
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-6">
@@ -65,6 +79,12 @@ export default async function CustomerJobDetailPage({
             {job.goods_budget}฿
           </p>
         ) : null}
+        {job.goods_quote != null ? (
+          <p>
+            <span className="text-[var(--muted)]">ยอดจากไรเดอร์: </span>
+            {job.goods_quote}฿
+          </p>
+        ) : null}
         {riderName ? (
           <p>
             <span className="text-[var(--muted)]">ไรเดอร์: </span>
@@ -79,6 +99,48 @@ export default async function CustomerJobDetailPage({
           </p>
         )}
       </section>
+
+      {job.status === "quote_pending" && job.goods_quote != null ? (
+        <CustomerQuoteActions
+          jobId={job.id}
+          goodsQuote={Number(job.goods_quote)}
+          deliveryFee={fee}
+          quoteDeadlineAt={job.quote_deadline_at}
+        />
+      ) : null}
+
+      {job.status === "awaiting_payment" ? (
+        <section className="mt-4 space-y-2 rounded-2xl border-2 border-[var(--ink)] bg-white p-4 text-sm">
+          <p className="font-display text-lg font-bold">รอโอนเงิน</p>
+          <p>
+            ค่าของ {job.goods_confirmed}฿ + ค่าส่ง {job.delivery_fee}฿ ={" "}
+            <strong>{total}฿</strong>
+          </p>
+          {riderPromptpay ? (
+            <p>
+              พร้อมเพย์ไรเดอร์: <strong>{riderPromptpay}</strong>
+            </p>
+          ) : (
+            <p className="text-[var(--muted)]">
+              ไรเดอร์ยังไม่ได้ใส่พร้อมเพย์ในโปรไฟล์ — ติดต่อไรเดอร์ทางเบอร์โทร
+            </p>
+          )}
+          {job.pay_deadline_at ? (
+            <p className="text-xs text-[var(--muted)]">
+              โอนภายใน {new Date(job.pay_deadline_at).toLocaleTimeString("th-TH")}
+            </p>
+          ) : null}
+          <p className="text-xs text-[var(--muted)]">
+            ขั้นอัปโหลดสลิปจะตามมาในรอบถัดไป — โอนแล้วแจ้งไรเดอร์ได้ก่อน
+          </p>
+        </section>
+      ) : null}
+
+      {job.status === "cancelled_shop" ? (
+        <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          งานยกเลิก: {job.cancel_reason ?? "ร้านปิด/ของหมด"}
+        </p>
+      ) : null}
     </main>
   );
 }

@@ -70,9 +70,14 @@ export type RiderInboxJob = {
   dropoff_lng: number;
   status: string;
   delivery_fee: number | null;
+  goods_quote: number | null;
+  goods_confirmed: number | null;
   shopping_list: string;
+  goods_budget: number | null;
   dropoff_address: string;
   accept_deadline_at: string | null;
+  quote_deadline_at: string | null;
+  pay_deadline_at: string | null;
   created_at: string;
 };
 
@@ -92,7 +97,7 @@ export async function getRiderInbox(): Promise<{
     supabase
       .from("jobs")
       .select(
-        "id, shop_name, shop_lat, shop_lng, dropoff_lat, dropoff_lng, status, delivery_fee, shopping_list, dropoff_address, accept_deadline_at, created_at",
+        "id, shop_name, shop_lat, shop_lng, dropoff_lat, dropoff_lng, status, delivery_fee, goods_quote, goods_confirmed, shopping_list, goods_budget, dropoff_address, accept_deadline_at, quote_deadline_at, pay_deadline_at, created_at",
       )
       .eq("rider_id", profile.id)
       .in("status", [

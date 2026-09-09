@@ -317,3 +317,101 @@ export async function createJob(input: {
   revalidatePath("/rider/jobs");
   return { jobId: job.id as string };
 }
+
+export async function confirmGoodsQuote(jobId: string) {
+  const { supabase, profile } = await requireCustomerActor();
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select(
+      "id, customer_id, status, goods_quote, delivery_fee, quote_deadline_at",
+    )
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.customer_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "quote_pending") {
+    throw new Error("งานนี้ไม่อยู่ในขั้นยืนยันยอด");
+  }
+  if (job.goods_quote == null) throw new Error("ยังไม่มียอดจากไรเดอร์");
+  if (
+    job.quote_deadline_at &&
+    new Date(job.quote_deadline_at).getTime() < Date.now()
+  ) {
+    throw new Error("หมดเวลายืนยันยอดแล้ว — ให้ไรเดอร์สรุปยอดใหม่");
+  }
+
+  const payDeadline = new Date(
+    Date.now() + TIMEOUTS.paySec * 1000,
+  ).toISOString();
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      goods_confirmed: job.goods_quote,
+      status: "awaiting_payment",
+      pay_deadline_at: payDeadline,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "quote_pending");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "goods_quote_confirmed",
+    payload: {
+      goods_confirmed: job.goods_quote,
+      delivery_fee: job.delivery_fee,
+    },
+  });
+
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+}
+
+export async function rejectGoodsQuote(jobId: string) {
+  const { supabase, profile } = await requireCustomerActor();
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("id, customer_id, status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.customer_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "quote_pending") {
+    throw new Error("งานนี้ไม่อยู่ในขั้นยืนยันยอด");
+  }
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      status: "at_shop",
+      goods_quote: null,
+      quote_deadline_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "quote_pending");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "goods_quote_rejected",
+    payload: {},
+  });
+
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+}

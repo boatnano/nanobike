@@ -6,6 +6,7 @@ import { getRiderInbox, type RiderInboxJob } from "@/app/rider/actions";
 import { ArriveAtShopButton } from "@/components/rider/ArriveAtShopButton";
 import { NavigateToDropoffButton, NavigateToShopButton } from "@/components/rider/NavigateButtons";
 import { RiderJobActions } from "@/components/rider/RiderJobActions";
+import { RiderQuotePanel } from "@/components/rider/RiderQuotePanel";
 import { roadmapHint } from "@/lib/roadmap";
 
 const POLL_MS = 3000;
@@ -109,8 +110,21 @@ export function RiderJobsClient() {
               </>
             ) : null}
             {job.status === "at_shop" ? (
+              <RiderQuotePanel
+                jobId={job.id}
+                shoppingList={job.shopping_list}
+                goodsBudget={job.goods_budget}
+              />
+            ) : null}
+            {job.status === "quote_pending" ? (
               <p className="mt-3 rounded-xl bg-[var(--wash)] px-3 py-2 text-sm">
-                ถึงร้านแล้ว — ขั้นถัดไปสรุปยอดค่าของให้ลูกค้ายืนยัน
+                ส่งยอด {job.goods_quote ?? "—"}฿ แล้ว — รอลูกค้ายืนยัน
+              </p>
+            ) : null}
+            {job.status === "awaiting_payment" ? (
+              <p className="mt-3 rounded-xl bg-[var(--wash)] px-3 py-2 text-sm">
+                รอลูกค้าโอน (ค่าของ {job.goods_confirmed ?? "—"}฿ + ค่าส่ง{" "}
+                {job.delivery_fee ?? "—"}฿)
               </p>
             ) : null}
             {job.status === "delivering" ? (
