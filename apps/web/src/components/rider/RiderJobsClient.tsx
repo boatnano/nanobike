@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getRiderInbox, type RiderInboxJob } from "@/app/rider/actions";
+import { ArriveAtShopButton } from "@/components/rider/ArriveAtShopButton";
 import { NavigateToDropoffButton, NavigateToShopButton } from "@/components/rider/NavigateButtons";
 import { RiderJobActions } from "@/components/rider/RiderJobActions";
 import { roadmapHint } from "@/lib/roadmap";
@@ -97,13 +98,21 @@ export function RiderJobsClient() {
             {job.status === "pending_rider" ? (
               <RiderJobActions jobId={job.id} />
             ) : null}
-            {(job.status === "going_to_shop" || job.status === "at_shop") && (
-              <NavigateToShopButton
-                lat={job.shop_lat}
-                lng={job.shop_lng}
-                shopName={job.shop_name}
-              />
-            )}
+            {job.status === "going_to_shop" ? (
+              <>
+                <NavigateToShopButton
+                  lat={job.shop_lat}
+                  lng={job.shop_lng}
+                  shopName={job.shop_name}
+                />
+                <ArriveAtShopButton jobId={job.id} />
+              </>
+            ) : null}
+            {job.status === "at_shop" ? (
+              <p className="mt-3 rounded-xl bg-[var(--wash)] px-3 py-2 text-sm">
+                ถึงร้านแล้ว — ขั้นถัดไปสรุปยอดค่าของให้ลูกค้ายืนยัน
+              </p>
+            ) : null}
             {job.status === "delivering" ? (
               <NavigateToDropoffButton
                 lat={job.dropoff_lat}

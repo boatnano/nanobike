@@ -8,6 +8,7 @@ import {
   type RiderInboxJob,
 } from "@/app/rider/actions";
 import { JobRoadmap } from "@/components/JobRoadmap";
+import { ArriveAtShopButton } from "@/components/rider/ArriveAtShopButton";
 import { NavigateToDropoffButton, NavigateToShopButton } from "@/components/rider/NavigateButtons";
 import { RiderJobActions } from "@/components/rider/RiderJobActions";
 import { notify, requestNotifyPermission } from "@/lib/notify";
@@ -154,13 +155,21 @@ export function RiderHomeClient({
           <p className="text-xs text-[var(--muted)]">งานปัจจุบัน</p>
           <p className="font-semibold">{active.shop_name}</p>
           <p className="text-sm">{active.shopping_list}</p>
-          {(active.status === "going_to_shop" || active.status === "at_shop") && (
-            <NavigateToShopButton
-              lat={active.shop_lat}
-              lng={active.shop_lng}
-              shopName={active.shop_name}
-            />
-          )}
+          {active.status === "going_to_shop" ? (
+            <>
+              <NavigateToShopButton
+                lat={active.shop_lat}
+                lng={active.shop_lng}
+                shopName={active.shop_name}
+              />
+              <ArriveAtShopButton jobId={active.id} />
+            </>
+          ) : null}
+          {active.status === "at_shop" ? (
+            <p className="mt-3 rounded-xl bg-[var(--wash)] px-3 py-2 text-sm">
+              ถึงร้านแล้ว — ขั้นถัดไปสรุปยอดค่าของให้ลูกค้ายืนยัน
+            </p>
+          ) : null}
           {active.status === "delivering" ? (
             <NavigateToDropoffButton
               lat={active.dropoff_lat}

@@ -105,5 +105,45 @@ export async function rejectJob(jobId: string) {
   });
 
   revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
   revalidatePath("/customer/jobs");
+}
+
+export async function markArrivedAtShop(jobId: string) {
+  const { supabase, profile } = await requireRiderActor();
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("id, rider_id, status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.rider_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "going_to_shop") {
+    throw new Error("กดปุ่มนี้ได้ตอนกำลังไปร้านเท่านั้น");
+  }
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      status: "at_shop",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "going_to_shop");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "rider_arrived_shop",
+    payload: {},
+  });
+
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
 }
