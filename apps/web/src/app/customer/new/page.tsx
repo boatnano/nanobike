@@ -14,7 +14,7 @@ export default async function CustomerNewJobPage() {
       </Link>
       <h1 className="font-display mt-3 text-2xl font-bold">เริ่มฝากซื้อ</h1>
       <p className="mb-4 text-sm text-[var(--muted)]">
-        ค้นร้าน → รายการ → จุดส่ง → เลือกไรเดอร์พร้อมค่าส่ง
+        แผนที่ร้านทั้งหมด → ค้นหา/เลือก → รายการ → จุดส่ง → ไรเดอร์+ค่าส่ง
       </p>
       <CustomerNewJobWizard />
     </main>

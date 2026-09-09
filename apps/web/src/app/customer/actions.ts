@@ -31,6 +31,19 @@ export type RiderFeeOption = {
   kmBillable: number;
 };
 
+export async function listApprovedShops(): Promise<ShopResult[]> {
+  const { supabase } = await requireCustomerActor();
+  const { data, error } = await supabase
+    .from("shops")
+    .select("id, name, address, lat, lng, keywords")
+    .eq("status", "approved")
+    .order("name")
+    .limit(300);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ShopResult[];
+}
+
 export async function searchApprovedShops(query: string): Promise<ShopResult[]> {
   const { supabase } = await requireCustomerActor();
   const q = query.trim();
@@ -40,7 +53,7 @@ export async function searchApprovedShops(query: string): Promise<ShopResult[]> 
     .select("id, name, address, lat, lng, keywords")
     .eq("status", "approved")
     .order("name")
-    .limit(30);
+    .limit(q ? 12 : 30);
 
   if (q) {
     req = req.or(`name.ilike.%${q}%,address.ilike.%${q}%,keywords.ilike.%${q}%`);
@@ -49,6 +62,73 @@ export async function searchApprovedShops(query: string): Promise<ShopResult[]> 
   const { data, error } = await req;
   if (error) throw new Error(error.message);
   return (data ?? []) as ShopResult[];
+}
+
+export type NearbyRiderPin = {
+  riderId: string;
+  displayName: string;
+  lat: number;
+  lng: number;
+  kmToShop: number;
+  locationAgeSec: number;
+};
+
+export async function listNearbyRidersAroundShop(input: {
+  shopLat: number;
+  shopLng: number;
+}): Promise<NearbyRiderPin[]> {
+  const { supabase } = await requireCustomerActor();
+
+  const { data: riders, error } = await supabase
+    .from("rider_profiles")
+    .select(
+      "user_id, profiles!inner(full_name, account_status)",
+    )
+    .eq("approval_status", "approved")
+    .eq("is_available", true)
+    .eq("profiles.account_status", "active");
+
+  if (error) throw new Error(error.message);
+  if (!riders?.length) return [];
+
+  const ids = riders.map((r) => r.user_id);
+  const { data: locs, error: locError } = await supabase
+    .from("rider_locations")
+    .select("rider_id, lat, lng, updated_at")
+    .in("rider_id", ids);
+
+  if (locError) throw new Error(locError.message);
+  const locMap = new Map((locs ?? []).map((l) => [l.rider_id, l] as const));
+  const shop = { lat: input.shopLat, lng: input.shopLng };
+  const now = Date.now();
+
+  type Row = {
+    user_id: string;
+    profiles:
+      | { full_name: string; account_status: string }
+      | { full_name: string; account_status: string }[];
+  };
+
+  return (riders as Row[])
+    .map((row) => {
+      const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      const loc = locMap.get(row.user_id);
+      if (!profile || !loc) return null;
+      return {
+        riderId: row.user_id,
+        displayName: profile.full_name,
+        lat: loc.lat,
+        lng: loc.lng,
+        kmToShop: haversineKm({ lat: loc.lat, lng: loc.lng }, shop),
+        locationAgeSec: Math.max(
+          0,
+          Math.floor((now - new Date(loc.updated_at).getTime()) / 1000),
+        ),
+      };
+    })
+    .filter((x): x is NearbyRiderPin => x != null)
+    .sort((a, b) => a.kmToShop - b.kmToShop)
+    .slice(0, 20);
 }
 
 export async function listNearbyRidersWithFees(input: {

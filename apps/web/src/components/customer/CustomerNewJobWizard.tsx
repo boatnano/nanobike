@@ -2,11 +2,14 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   createJob,
+  listApprovedShops,
+  listNearbyRidersAroundShop,
   listNearbyRidersWithFees,
   searchApprovedShops,
+  type NearbyRiderPin,
   type RiderFeeOption,
   type ShopResult,
 } from "@/app/customer/actions";
@@ -14,6 +17,11 @@ import {
 const DropoffMap = dynamic(
   () => import("@/components/map/DropoffMap").then((m) => m.DropoffMap),
   { ssr: false, loading: () => <div className="h-72 animate-pulse rounded-2xl bg-[var(--wash)]" /> },
+);
+
+const ShopExploreMap = dynamic(
+  () => import("@/components/map/ShopExploreMap").then((m) => m.ShopExploreMap),
+  { ssr: false, loading: () => <div className="h-[420px] animate-pulse rounded-2xl bg-[var(--wash)]" /> },
 );
 
 const RiderPickMap = dynamic(
@@ -29,8 +37,11 @@ export function CustomerNewJobWizard() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("shop");
   const [query, setQuery] = useState("");
-  const [shops, setShops] = useState<ShopResult[]>([]);
+  const [allShops, setAllShops] = useState<ShopResult[]>([]);
+  const [suggestions, setSuggestions] = useState<ShopResult[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedShop, setSelectedShop] = useState<ShopResult | null>(null);
+  const [previewRiders, setPreviewRiders] = useState<NearbyRiderPin[]>([]);
   const [customShop, setCustomShop] = useState(false);
   const [shopName, setShopName] = useState("");
   const [shopLat, setShopLat] = useState(MAE_KLONG.lat);
@@ -51,24 +62,66 @@ export function CustomerNewJobWizard() {
     [riders, selectedRiderId],
   );
 
-  function runSearch() {
+  useEffect(() => {
     startTransition(async () => {
-      setError(null);
       try {
-        const result = await searchApprovedShops(query);
-        setShops(result);
+        const shops = await listApprovedShops();
+        setAllShops(shops);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "ค้นหาไม่สำเร็จ");
+        setError(err instanceof Error ? err.message : "โหลดร้านไม่สำเร็จ");
       }
     });
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  function pickShop(shop: ShopResult) {
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      startTransition(async () => {
+        try {
+          const result = await searchApprovedShops(q);
+          setSuggestions(result);
+          setShowSuggestions(true);
+        } catch {
+          /* ignore debounce errors */
+        }
+      });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  function focusShop(shop: ShopResult) {
     setSelectedShop(shop);
     setCustomShop(false);
     setShopName(shop.name);
     setShopLat(shop.lat);
     setShopLng(shop.lng);
+    setQuery(shop.name);
+    setShowSuggestions(false);
+    setError(null);
+    startTransition(async () => {
+      try {
+        const nearby = await listNearbyRidersAroundShop({
+          shopLat: shop.lat,
+          shopLng: shop.lng,
+        });
+        setPreviewRiders(nearby);
+      } catch (err) {
+        setPreviewRiders([]);
+        setError(err instanceof Error ? err.message : "โหลดไรเดอร์ไม่สำเร็จ");
+      }
+    });
+  }
+
+  function confirmShopAndContinue() {
+    if (!selectedShop) {
+      setError("กรุณาเลือกร้านจากแผนที่หรือช่องค้นหา");
+      return;
+    }
     setStep("details");
   }
 
@@ -147,50 +200,100 @@ export function CustomerNewJobWizard() {
 
       {step === "shop" ? (
         <section className="space-y-3 rounded-2xl border border-[var(--line)] bg-white/85 p-4">
-          <h2 className="font-display text-lg font-bold">ค้นหาร้าน</h2>
-          <div className="flex gap-2">
-            <input
-              className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-sm"
-              placeholder="เช่น ก๋วยเตี๋ยว, เซเว่น, ตลาด"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") runSearch();
-              }}
-            />
-            <button
-              type="button"
-              disabled={pending}
-              onClick={runSearch}
-              className="rounded-xl bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              ค้นหา
-            </button>
+          <h2 className="font-display text-lg font-bold">แผนที่ร้านสมุทรสงคราม</h2>
+          <p className="text-xs text-[var(--muted)]">
+            เปิดมาก็เห็นหมุดร้านทั้งหมด — พิมพ์ค้นหาแล้วเลือก หรือกดหมุดบนแผนที่
+          </p>
+
+          <div className="relative">
+            <div className="flex gap-2">
+              <input
+                className="w-full rounded-xl border border-[var(--line)] px-3 py-2 text-sm"
+                placeholder="ค้นหา เช่น ตลาด, เซเว่น, ก๋วยเตี๋ยว, อัมพวา"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => {
+                  if (suggestions.length) setShowSuggestions(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && suggestions[0]) {
+                    e.preventDefault();
+                    focusShop(suggestions[0]);
+                  }
+                }}
+              />
+              <button
+                type="button"
+                disabled={pending || !suggestions.length}
+                onClick={() => {
+                  if (suggestions[0]) focusShop(suggestions[0]);
+                }}
+                className="rounded-xl bg-[var(--ink)] px-4 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                ค้นหา
+              </button>
+            </div>
+
+            {showSuggestions && suggestions.length > 0 ? (
+              <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-xl border border-[var(--line)] bg-white shadow-lg">
+                {suggestions.map((shop) => (
+                  <li key={shop.id}>
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--wash)]"
+                      onClick={() => focusShop(shop)}
+                    >
+                      <p className="font-medium">{shop.name}</p>
+                      <p className="text-[11px] text-[var(--muted)]">{shop.address}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
-          <ul className="space-y-2">
-            {shops.map((shop) => (
-              <li key={shop.id}>
-                <button
-                  type="button"
-                  onClick={() => pickShop(shop)}
-                  className="w-full rounded-xl border border-[var(--line)] px-3 py-3 text-left hover:bg-[var(--wash)]"
-                >
-                  <p className="font-semibold">{shop.name}</p>
-                  <p className="text-xs text-[var(--muted)]">{shop.address}</p>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {!shops.length ? (
+
+          <ShopExploreMap
+            shops={allShops}
+            selectedShopId={selectedShop?.id ?? null}
+            riders={previewRiders}
+            onSelectShop={focusShop}
+          />
+
+          {selectedShop ? (
+            <div className="rounded-xl bg-[var(--wash)] px-3 py-3 text-sm">
+              <p>
+                เลือกร้าน: <strong>{selectedShop.name}</strong>
+              </p>
+              <p className="text-xs text-[var(--muted)]">
+                {previewRiders.length
+                  ? `มีไรเดอร์เปิดรับงานใกล้ร้าน ${previewRiders.length} คน (🛵 บนแผนที่)`
+                  : "ยังไม่มีไรเดอร์เปิดรับงานใกล้ร้านนี้ — เลือกต่อได้ แล้วค่อยหาคนตอนหลัง"}
+              </p>
+            </div>
+          ) : (
             <p className="text-sm text-[var(--muted)]">
-              พิมพ์คีย์เวิร์ดแล้วกดค้นหา หรือปักหมุดร้านเอง
+              ร้านทั้งหมด {allShops.length} แห่ง — เลือกจากค้นหาหรือกดหมุด
             </p>
-          ) : null}
+          )}
+
+          <button
+            type="button"
+            disabled={!selectedShop}
+            onClick={confirmShopAndContinue}
+            className="w-full rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-semibold disabled:opacity-50"
+          >
+            ใช้ร้านนี้ — ใส่รายการฝากซื้อ
+          </button>
+
           <button
             type="button"
             onClick={() => {
               setCustomShop(true);
               setSelectedShop(null);
+              setPreviewRiders([]);
               setShopName("");
               setStep("details");
             }}
@@ -349,7 +452,7 @@ export function CustomerNewJobWizard() {
 
       {step === "riders" ? (
         <section className="space-y-3 rounded-2xl border border-[var(--line)] bg-white/85 p-4">
-          <h2 className="font-display text-lg font-bold">เลือกไรเดอร์</h2>
+          <h2 className="font-display text-lg font-bold">เลือกไรเดอร์ + ค่าส่ง</h2>
           {!riders.length ? (
             <p className="text-sm text-[var(--muted)]">
               ยังไม่มีไรเดอร์เปิดรับงานใกล้ร้าน — สลับโหมดไรเดอร์แล้วเปิดรับงาน + อัปเดตพิกัดก่อน
@@ -384,7 +487,10 @@ export function CustomerNewJobWizard() {
                       </div>
                       <p className="text-xs text-[var(--muted)]">
                         ห่างร้าน ~{rider.kmToShop.toFixed(1)} กม. · ค่าส่ง{" "}
-                        {rider.usedMinFee ? "ขั้นต่ำ 20฿" : `${rider.kmBillable.toFixed(1)} กม.×2×3.5`} ·{" "}
+                        {rider.usedMinFee
+                          ? "ขั้นต่ำ 20฿"
+                          : `${rider.kmBillable.toFixed(1)} กม.×2×3.5`}{" "}
+                        ·{" "}
                         {rider.distanceSource === "road" ? "ระยะถนน" : "ระยะประมาณ"}
                       </p>
                     </button>
