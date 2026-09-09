@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CustomerQuoteActions } from "@/components/customer/CustomerQuoteActions";
+import { JobLiveRefresh } from "@/components/customer/JobLiveRefresh";
 import { PaymentSlipUpload } from "@/components/customer/PaymentSlipUpload";
 import { JobRoadmap } from "@/components/JobRoadmap";
 import { RoleModeNav } from "@/components/RoleModeNav";
@@ -49,6 +50,18 @@ export default async function CustomerJobDetailPage({
 
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-6">
+      <JobLiveRefresh
+        enabled={[
+          "pending_rider",
+          "going_to_shop",
+          "at_shop",
+          "quote_pending",
+          "awaiting_payment",
+          "paid_pending",
+          "shopping",
+          "delivering",
+        ].includes(job.status)}
+      />
       <RoleModeNav current="customer" />
       <Link href="/customer/jobs" className="text-sm text-[var(--muted)]">
         ← งานของฉัน
