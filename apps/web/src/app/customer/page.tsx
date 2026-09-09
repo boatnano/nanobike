@@ -1,9 +1,22 @@
 import Link from "next/link";
 import { JobRoadmap } from "@/components/JobRoadmap";
 import { RoleModeNav } from "@/components/RoleModeNav";
+import { requireCustomerActor } from "@/lib/auth";
 import { BRAND } from "@/lib/constants";
+import { roadmapHint } from "@/lib/roadmap";
 
-export default function CustomerHomePage() {
+export default async function CustomerHomePage() {
+  const { supabase, profile } = await requireCustomerActor();
+
+  const { data: activeJob } = await supabase
+    .from("jobs")
+    .select("id, shop_name, status, delivery_fee")
+    .eq("customer_id", profile.id)
+    .not("status", "in", "(completed,cancelled,rejected,cancelled_shop)")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-6">
       <RoleModeNav current="customer" />
@@ -19,7 +32,21 @@ export default function CustomerHomePage() {
         </Link>
       </header>
 
-      <JobRoadmap status="pending_rider" role="customer" deadlineLabel="เหลือ 4:32" />
+      {activeJob ? (
+        <Link
+          href={`/customer/jobs/${activeJob.id}`}
+          className="mb-4 block rounded-2xl border border-[var(--line)] bg-white/85 p-4"
+        >
+          <p className="text-xs text-[var(--muted)]">งานปัจจุบัน</p>
+          <p className="font-semibold">{activeJob.shop_name}</p>
+          <p className="text-sm">{roadmapHint(activeJob.status, "customer")}</p>
+          <div className="mt-3">
+            <JobRoadmap status={activeJob.status} role="customer" />
+          </div>
+        </Link>
+      ) : (
+        <JobRoadmap status="pending_rider" role="customer" />
+      )}
 
       <section className="mt-6 space-y-3">
         <Link
@@ -37,7 +64,7 @@ export default function CustomerHomePage() {
       </section>
 
       <p className="mt-6 text-sm text-[var(--muted)]">
-        ลำดับ: ค้นร้าน → ยืนยันจุดส่ง → แมพไรเดอร์+ค่าส่ง → เลือกคน → ตาม Roadmap จนส่งสำเร็จ
+        ลำดับ: ค้นร้าน → รายการฝากซื้อ → ยืนยันจุดส่ง → แมพไรเดอร์+ค่าส่ง → เลือกคน
       </p>
     </main>
   );

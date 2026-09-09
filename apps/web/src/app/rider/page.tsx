@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { RoleModeNav } from "@/components/RoleModeNav";
 import { RiderHomeClient } from "@/components/RiderHomeClient";
+import { requireRiderActor } from "@/lib/auth";
 import { BRAND } from "@/lib/constants";
 
-export default function RiderHomePage() {
+export default async function RiderHomePage() {
+  const { supabase, profile } = await requireRiderActor();
+  const { data: rider } = await supabase
+    .from("rider_profiles")
+    .select("is_available")
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-6">
       <RoleModeNav current="rider" />
@@ -18,7 +26,7 @@ export default function RiderHomePage() {
           บัญชีของฉัน
         </Link>
       </header>
-      <RiderHomeClient />
+      <RiderHomeClient initiallyAvailable={Boolean(rider?.is_available)} />
     </main>
   );
 }

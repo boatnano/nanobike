@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { setRiderAvailability } from "@/app/rider/actions";
 import { JobRoadmap } from "@/components/JobRoadmap";
 import { notify, requestNotifyPermission } from "@/lib/notify";
 
-export function RiderHomeClient() {
-  const [available, setAvailable] = useState(false);
+export function RiderHomeClient({
+  initiallyAvailable,
+}: {
+  initiallyAvailable: boolean;
+}) {
+  const [available, setAvailable] = useState(initiallyAvailable);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     void requestNotifyPermission();
@@ -19,16 +26,32 @@ export function RiderHomeClient() {
         <input
           type="checkbox"
           checked={available}
+          disabled={pending}
           onChange={(e) => {
-            setAvailable(e.target.checked);
-            if (e.target.checked) {
-              notify("nanobike", "เปิดรับงานแล้ว — เก็บหน้านี้เปิดไว้เพื่ออัปเดตพิกัด");
-            }
+            const next = e.target.checked;
+            startTransition(async () => {
+              setError(null);
+              try {
+                await setRiderAvailability(next);
+                setAvailable(next);
+                if (next) {
+                  notify(
+                    "nanobike",
+                    "เปิดรับงานแล้ว — ไปอัปเดตพิกัดที่แผนที่ด้วย",
+                  );
+                }
+              } catch (err) {
+                setError(
+                  err instanceof Error ? err.message : "เปลี่ยนสถานะไม่สำเร็จ",
+                );
+              }
+            });
           }}
         />
       </label>
+      {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
 
-      <JobRoadmap status="going_to_shop" role="rider" />
+      <JobRoadmap status={available ? "pending_rider" : "going_to_shop"} role="rider" />
 
       <section className="mt-6 grid gap-3">
         <Link
