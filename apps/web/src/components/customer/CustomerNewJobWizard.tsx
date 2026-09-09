@@ -444,7 +444,7 @@ export function CustomerNewJobWizard() {
               onClick={loadRiders}
               className="flex-1 rounded-xl bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {pending ? "กำลังคำนวณค่าส่ง..." : "ต่อไป — เลือกไรเดอร์"}
+              {pending ? "กำลังหาไรเดอร์บนแผนที่..." : "ดูแผนที่ไรเดอร์ + ค่าส่ง"}
             </button>
           </div>
         </section>
@@ -452,7 +452,11 @@ export function CustomerNewJobWizard() {
 
       {step === "riders" ? (
         <section className="space-y-3 rounded-2xl border border-[var(--line)] bg-white/85 p-4">
-          <h2 className="font-display text-lg font-bold">เลือกไรเดอร์ + ค่าส่ง</h2>
+          <h2 className="font-display text-lg font-bold">แผนที่ไรเดอร์ + ค่าส่ง</h2>
+          <p className="text-xs text-[var(--muted)]">
+            ดูบนแผนที่เลยว่าไรเดอร์อยู่ตรงไหน — ป้ายบนหมุดคือค่าส่ง ใครไกลมักแพงกว่า
+            กดหมุดหรือรายการด้านล่างเพื่อเลือก
+          </p>
           {!riders.length ? (
             <p className="text-sm text-[var(--muted)]">
               ยังไม่มีไรเดอร์เปิดรับงานใกล้ร้าน — สลับโหมดไรเดอร์แล้วเปิดรับงาน + อัปเดตพิกัดก่อน
@@ -480,16 +484,16 @@ export function CustomerNewJobWizard() {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-semibold">
-                          {idx === 0 ? "ใกล้สุด · " : ""}
+                          {idx === 0 ? "ถูก/ใกล้สุด · " : ""}
                           {rider.displayName}
                         </p>
-                        <p className="font-bold">{rider.deliveryFee}฿</p>
+                        <p className="text-lg font-bold">{rider.deliveryFee}฿</p>
                       </div>
                       <p className="text-xs text-[var(--muted)]">
-                        ห่างร้าน ~{rider.kmToShop.toFixed(1)} กม. · ค่าส่ง{" "}
+                        ห่างร้าน ~{rider.kmToShop.toFixed(1)} กม. ·{" "}
                         {rider.usedMinFee
                           ? "ขั้นต่ำ 20฿"
-                          : `${rider.kmBillable.toFixed(1)} กม.×2×3.5`}{" "}
+                          : `ไป–กลับ ~${rider.kmBillable.toFixed(1)} กม. × 3.5`}{" "}
                         ·{" "}
                         {rider.distanceSource === "road" ? "ระยะถนน" : "ระยะประมาณ"}
                       </p>
@@ -503,6 +507,10 @@ export function CustomerNewJobWizard() {
             <p className="rounded-xl bg-[var(--wash)] px-3 py-2 text-sm">
               เลือก <strong>{selectedRider.displayName}</strong> ค่าส่ง{" "}
               <strong>{selectedRider.deliveryFee}฿</strong>
+              <span className="text-[var(--muted)]">
+                {" "}
+                (ห่างร้าน ~{selectedRider.kmToShop.toFixed(1)} กม.)
+              </span>
             </p>
           ) : null}
           <div className="flex gap-2">
