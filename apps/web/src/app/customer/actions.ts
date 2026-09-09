@@ -415,3 +415,51 @@ export async function rejectGoodsQuote(jobId: string) {
   revalidatePath("/rider/jobs");
   revalidatePath("/rider");
 }
+
+export async function submitPaymentSlip(jobId: string, slipUrl: string) {
+  const { supabase, profile } = await requireCustomerActor();
+
+  if (!slipUrl.trim()) throw new Error("ไม่พบลิงก์สลิป");
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("id, customer_id, status, pay_deadline_at")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.customer_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "awaiting_payment") {
+    throw new Error("อัปสลิปได้ตอนรอโอนเงินเท่านั้น");
+  }
+  if (
+    job.pay_deadline_at &&
+    new Date(job.pay_deadline_at).getTime() < Date.now()
+  ) {
+    throw new Error("หมดเวลาโอนเงินแล้ว");
+  }
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      payment_slip_url: slipUrl.trim(),
+      status: "paid_pending",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "awaiting_payment");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "payment_slip_uploaded",
+    payload: { payment_slip_url: slipUrl.trim() },
+  });
+
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+}

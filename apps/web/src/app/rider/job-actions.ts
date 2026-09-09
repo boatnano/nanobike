@@ -247,3 +247,183 @@ export async function cancelShopUnavailable(
   revalidatePath("/customer/jobs");
   revalidatePath(`/customer/jobs/${jobId}`);
 }
+
+export async function confirmPaymentReceived(jobId: string) {
+  const { supabase, profile } = await requireRiderActor();
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("id, rider_id, status, payment_slip_url")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.rider_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "paid_pending") {
+    throw new Error("ยืนยันรับเงินได้ตอนมีสลิปรอตรวจเท่านั้น");
+  }
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      status: "shopping",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "paid_pending");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "payment_confirmed",
+    payload: {},
+  });
+
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
+}
+
+export async function rejectPaymentSlip(jobId: string, reason?: string) {
+  const { supabase, profile } = await requireRiderActor();
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("id, rider_id, status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.rider_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "paid_pending") {
+    throw new Error("ปัดสลิปได้ตอนรอตรวจสลิปเท่านั้น");
+  }
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      status: "awaiting_payment",
+      payment_slip_url: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "paid_pending");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "payment_slip_rejected",
+    payload: { reason: reason ?? "สลิปไม่ถูกต้อง" },
+  });
+
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
+}
+
+export async function markShoppingDone(jobId: string) {
+  const { supabase, profile } = await requireRiderActor();
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("id, rider_id, status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.rider_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "shopping") {
+    throw new Error("กดได้ตอนกำลังซื้อของเท่านั้น");
+  }
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      status: "delivering",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "shopping");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "shopping_done",
+    payload: {},
+  });
+
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
+}
+
+export async function markDelivered(jobId: string) {
+  const { supabase, profile } = await requireRiderActor();
+
+  const { data: job, error } = await supabase
+    .from("jobs")
+    .select("id, rider_id, status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!job || job.rider_id !== profile.id) throw new Error("ไม่พบงานนี้");
+  if (job.status !== "delivering") {
+    throw new Error("กดส่งสำเร็จได้ตอนกำลังส่งเท่านั้น");
+  }
+
+  const { error: updateError } = await supabase
+    .from("jobs")
+    .update({
+      status: "completed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("status", "delivering");
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabase.from("job_events").insert({
+    job_id: jobId,
+    actor_id: profile.id,
+    event_type: "job_completed",
+    payload: {},
+  });
+
+  await supabase
+    .from("rider_profiles")
+    .update({ is_available: true, updated_at: new Date().toISOString() })
+    .eq("user_id", profile.id);
+
+  revalidatePath("/rider/jobs");
+  revalidatePath("/rider");
+  revalidatePath("/customer/jobs");
+  revalidatePath(`/customer/jobs/${jobId}`);
+}
+
+export async function updateRiderPromptPay(promptpayId: string) {
+  const { supabase, profile } = await requireRiderActor();
+  const cleaned = promptpayId.replace(/\D/g, "");
+  if (cleaned.length < 9) throw new Error("เลขพร้อมเพย์ไม่ถูกต้อง");
+
+  const { error } = await supabase
+    .from("rider_profiles")
+    .update({
+      promptpay_id: cleaned,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", profile.id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/rider/account");
+  revalidatePath("/rider");
+}

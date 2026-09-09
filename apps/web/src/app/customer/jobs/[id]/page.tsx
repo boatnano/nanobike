@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CustomerQuoteActions } from "@/components/customer/CustomerQuoteActions";
+import { PaymentSlipUpload } from "@/components/customer/PaymentSlipUpload";
 import { JobRoadmap } from "@/components/JobRoadmap";
 import { RoleModeNav } from "@/components/RoleModeNav";
 import { requireCustomerActor } from "@/lib/auth";
@@ -110,30 +111,51 @@ export default async function CustomerJobDetailPage({
       ) : null}
 
       {job.status === "awaiting_payment" ? (
-        <section className="mt-4 space-y-2 rounded-2xl border-2 border-[var(--ink)] bg-white p-4 text-sm">
-          <p className="font-display text-lg font-bold">รอโอนเงิน</p>
+        <PaymentSlipUpload
+          jobId={job.id}
+          goodsConfirmed={Number(job.goods_confirmed ?? 0)}
+          deliveryFee={fee}
+          promptpayId={riderPromptpay}
+          payDeadlineAt={job.pay_deadline_at}
+        />
+      ) : null}
+
+      {job.status === "paid_pending" ? (
+        <section className="mt-4 space-y-2 rounded-2xl border border-[var(--line)] bg-white/85 p-4 text-sm">
+          <p className="font-display text-lg font-bold">ส่งสลิปแล้ว</p>
           <p>
-            ค่าของ {job.goods_confirmed}฿ + ค่าส่ง {job.delivery_fee}฿ ={" "}
-            <strong>{total}฿</strong>
+            รวม {total}฿ — รอไรเดอร์ยืนยันรับเงิน
           </p>
-          {riderPromptpay ? (
-            <p>
-              พร้อมเพย์ไรเดอร์: <strong>{riderPromptpay}</strong>
-            </p>
-          ) : (
-            <p className="text-[var(--muted)]">
-              ไรเดอร์ยังไม่ได้ใส่พร้อมเพย์ในโปรไฟล์ — ติดต่อไรเดอร์ทางเบอร์โทร
-            </p>
-          )}
-          {job.pay_deadline_at ? (
-            <p className="text-xs text-[var(--muted)]">
-              โอนภายใน {new Date(job.pay_deadline_at).toLocaleTimeString("th-TH")}
-            </p>
+          {job.payment_slip_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <a
+              href={job.payment_slip_url}
+              target="_blank"
+              rel="noreferrer"
+              className="block"
+            >
+              <img
+                src={job.payment_slip_url}
+                alt="สลิปโอน"
+                className="max-h-40 w-full rounded-lg object-contain"
+              />
+            </a>
           ) : null}
-          <p className="text-xs text-[var(--muted)]">
-            ขั้นอัปโหลดสลิปจะตามมาในรอบถัดไป — โอนแล้วแจ้งไรเดอร์ได้ก่อน
-          </p>
         </section>
+      ) : null}
+
+      {job.status === "shopping" || job.status === "delivering" ? (
+        <p className="mt-4 rounded-2xl border border-[var(--line)] bg-white/85 px-4 py-3 text-sm">
+          {job.status === "shopping"
+            ? "ไรเดอร์กำลังซื้อของให้"
+            : "ไรเดอร์กำลังส่งของมาหาคุณ"}
+        </p>
+      ) : null}
+
+      {job.status === "completed" ? (
+        <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          ส่งสำเร็จแล้ว — ขอบคุณที่ใช้ {job.shop_name}
+        </p>
       ) : null}
 
       {job.status === "cancelled_shop" ? (

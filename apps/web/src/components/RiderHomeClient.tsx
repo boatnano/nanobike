@@ -9,7 +9,9 @@ import {
 } from "@/app/rider/actions";
 import { JobRoadmap } from "@/components/JobRoadmap";
 import { ArriveAtShopButton } from "@/components/rider/ArriveAtShopButton";
-import { NavigateToDropoffButton, NavigateToShopButton } from "@/components/rider/NavigateButtons";
+import { DeliveryProgressButtons } from "@/components/rider/DeliveryProgressButtons";
+import { NavigateToShopButton } from "@/components/rider/NavigateButtons";
+import { PaymentConfirmPanel } from "@/components/rider/PaymentConfirmPanel";
 import { RiderJobActions } from "@/components/rider/RiderJobActions";
 import { RiderQuotePanel } from "@/components/rider/RiderQuotePanel";
 import { notify, requestNotifyPermission } from "@/lib/notify";
@@ -184,10 +186,20 @@ export function RiderHomeClient({
               {active.goods_confirmed ?? "—"}฿ + ค่าส่ง {active.delivery_fee ?? "—"}฿)
             </p>
           ) : null}
-          {active.status === "delivering" ? (
-            <NavigateToDropoffButton
-              lat={active.dropoff_lat}
-              lng={active.dropoff_lng}
+          {active.status === "paid_pending" ? (
+            <PaymentConfirmPanel
+              jobId={active.id}
+              slipUrl={active.payment_slip_url}
+              goodsConfirmed={active.goods_confirmed}
+              deliveryFee={active.delivery_fee}
+            />
+          ) : null}
+          {active.status === "shopping" || active.status === "delivering" ? (
+            <DeliveryProgressButtons
+              jobId={active.id}
+              status={active.status}
+              dropoffLat={active.dropoff_lat}
+              dropoffLng={active.dropoff_lng}
             />
           ) : null}
           <Link

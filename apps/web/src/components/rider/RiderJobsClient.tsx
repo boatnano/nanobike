@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getRiderInbox, type RiderInboxJob } from "@/app/rider/actions";
 import { ArriveAtShopButton } from "@/components/rider/ArriveAtShopButton";
-import { NavigateToDropoffButton, NavigateToShopButton } from "@/components/rider/NavigateButtons";
+import { DeliveryProgressButtons } from "@/components/rider/DeliveryProgressButtons";
+import { NavigateToShopButton } from "@/components/rider/NavigateButtons";
+import { PaymentConfirmPanel } from "@/components/rider/PaymentConfirmPanel";
 import { RiderJobActions } from "@/components/rider/RiderJobActions";
 import { RiderQuotePanel } from "@/components/rider/RiderQuotePanel";
 import { roadmapHint } from "@/lib/roadmap";
@@ -127,10 +129,20 @@ export function RiderJobsClient() {
                 {job.delivery_fee ?? "—"}฿)
               </p>
             ) : null}
-            {job.status === "delivering" ? (
-              <NavigateToDropoffButton
-                lat={job.dropoff_lat}
-                lng={job.dropoff_lng}
+            {job.status === "paid_pending" ? (
+              <PaymentConfirmPanel
+                jobId={job.id}
+                slipUrl={job.payment_slip_url}
+                goodsConfirmed={job.goods_confirmed}
+                deliveryFee={job.delivery_fee}
+              />
+            ) : null}
+            {job.status === "shopping" || job.status === "delivering" ? (
+              <DeliveryProgressButtons
+                jobId={job.id}
+                status={job.status}
+                dropoffLat={job.dropoff_lat}
+                dropoffLng={job.dropoff_lng}
               />
             ) : null}
           </li>
