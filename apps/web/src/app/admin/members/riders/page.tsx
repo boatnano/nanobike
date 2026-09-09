@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminMemberActions } from "@/components/AdminMemberActions";
+import { RoleModeNav } from "@/components/RoleModeNav";
 import { accountLabel, approvalLabel, requireAdmin } from "@/lib/admin";
 
 type RiderRow = {
@@ -7,6 +8,7 @@ type RiderRow = {
   full_name: string;
   phone: string;
   account_status: string;
+  role: string;
   rider_profiles:
     | {
         approval_status: string;
@@ -33,9 +35,8 @@ export default async function AdminRidersPage() {
   const { data: riders, error } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, phone, account_status, rider_profiles(approval_status, rating_avg, rating_count)",
+      "id, full_name, phone, account_status, role, rider_profiles!inner(approval_status, rating_avg, rating_count)",
     )
-    .eq("role", "rider")
     .order("created_at", { ascending: false });
 
   const riderIds = (riders ?? []).map((r) => r.id);
@@ -55,6 +56,7 @@ export default async function AdminRidersPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6">
+      <RoleModeNav current="admin" />
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold">สมาชิก · ไรเดอร์</h1>
@@ -97,7 +99,12 @@ export default async function AdminRidersPage() {
                   className="grid grid-cols-5 gap-2 border-b border-[var(--line)] px-3 py-3 text-sm last:border-b-0"
                 >
                   <div>
-                    <p className="font-medium">{rider.full_name}</p>
+                    <p className="font-medium">
+                      {rider.full_name}
+                      {rider.role === "admin" ? (
+                        <span className="ml-1 text-[11px] text-[var(--muted)]">(admin)</span>
+                      ) : null}
+                    </p>
                     <AdminMemberActions
                       userId={rider.id}
                       kind="rider"

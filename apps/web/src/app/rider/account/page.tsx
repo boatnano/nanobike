@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { RoleModeNav } from "@/components/RoleModeNav";
 import { BRAND } from "@/lib/constants";
 
 export default function RiderAccountPage() {
   return (
     <main className="mx-auto max-w-lg px-4 py-6">
+      <RoleModeNav current="rider" />
       <Link href="/rider" className="text-sm text-[var(--muted)]">
         ← กลับ
       </Link>

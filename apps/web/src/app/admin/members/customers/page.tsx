@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AdminMemberActions } from "@/components/AdminMemberActions";
+import { RoleModeNav } from "@/components/RoleModeNav";
 import { accountLabel, requireAdmin } from "@/lib/admin";
 
 export default async function AdminCustomersPage() {
@@ -7,8 +8,8 @@ export default async function AdminCustomersPage() {
 
   const { data: customers, error } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, account_status, created_at")
-    .eq("role", "customer")
+    .select("id, full_name, phone, account_status, role, created_at")
+    .in("role", ["customer", "admin"])
     .order("created_at", { ascending: false });
 
   const customerIds = (customers ?? []).map((c) => c.id);
@@ -39,6 +40,7 @@ export default async function AdminCustomersPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6">
+      <RoleModeNav current="admin" />
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold">สมาชิก · ลูกค้า</h1>
@@ -75,7 +77,12 @@ export default async function AdminCustomersPage() {
                 className="grid grid-cols-5 gap-2 border-b border-[var(--line)] px-3 py-3 text-sm last:border-b-0"
               >
                 <div>
-                  <p className="font-medium">{customer.full_name}</p>
+                  <p className="font-medium">
+                    {customer.full_name}
+                    {customer.role === "admin" ? (
+                      <span className="ml-1 text-[11px] text-[var(--muted)]">(admin)</span>
+                    ) : null}
+                  </p>
                   <AdminMemberActions
                     userId={customer.id}
                     kind="customer"

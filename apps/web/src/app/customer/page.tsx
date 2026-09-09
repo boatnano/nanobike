@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { JobRoadmap } from "@/components/JobRoadmap";
+import { RoleModeNav } from "@/components/RoleModeNav";
 import { BRAND } from "@/lib/constants";
 
 export default function CustomerHomePage() {
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-6">
+      <RoleModeNav current="customer" />
       <header className="mb-6 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold tracking-wide text-[var(--muted)] uppercase">
