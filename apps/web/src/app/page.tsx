@@ -23,24 +23,21 @@ export default function HomePage() {
 
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/signup?role=customer"
+            href="/signup"
             className="rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-white"
           >
-            สมัครเป็นลูกค้า
-          </Link>
-          <Link
-            href="/signup?role=rider"
-            className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-[var(--ink)]"
-          >
-            สมัครเป็นไรเดอร์
+            สมัครสมาชิก
           </Link>
           <Link
             href="/login"
-            className="rounded-full border border-[var(--line)] bg-white/70 px-5 py-3 text-sm font-semibold"
+            className="rounded-full bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-[var(--ink)]"
           >
             เข้าสู่ระบบ
           </Link>
         </div>
+        <p className="mt-3 text-sm text-[var(--muted)]">
+          สมัครครั้งแรกเป็นสมาชิกทั่วไป แล้วค่อยสมัครเป็นไรเดอร์ในบัญชีได้
+        </p>
 
         <dl className="mt-12 grid gap-4 sm:grid-cols-3">
           {[

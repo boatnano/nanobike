@@ -23,7 +23,11 @@ export async function requireUser() {
 
 export async function requireCustomerActor() {
   const ctx = await requireUser();
-  if (ctx.profile.role !== "customer" && ctx.profile.role !== "admin") {
+  if (
+    ctx.profile.role !== "customer" &&
+    ctx.profile.role !== "admin" &&
+    ctx.profile.role !== "rider"
+  ) {
     redirect("/login");
   }
   return ctx;
