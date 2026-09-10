@@ -6,7 +6,6 @@ import { PaymentSlipUpload } from "@/components/customer/PaymentSlipUpload";
 import { JobRoadmap } from "@/components/JobRoadmap";
 import { RoleModeNav } from "@/components/RoleModeNav";
 import { requireCustomerActor } from "@/lib/auth";
-import { roadmapHint } from "@/lib/roadmap";
 
 export default async function CustomerJobDetailPage({
   params,
@@ -67,7 +66,6 @@ export default async function CustomerJobDetailPage({
         ← งานของฉัน
       </Link>
       <h1 className="font-display mt-3 text-2xl font-bold">{job.shop_name}</h1>
-      <p className="text-sm text-[var(--muted)]">{roadmapHint(job.status, "customer")}</p>
 
       <div className="mt-4">
         <JobRoadmap status={job.status} role="customer" />

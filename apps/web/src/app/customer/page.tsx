@@ -3,7 +3,6 @@ import { JobRoadmap } from "@/components/JobRoadmap";
 import { RoleModeNav } from "@/components/RoleModeNav";
 import { requireCustomerActor } from "@/lib/auth";
 import { BRAND } from "@/lib/constants";
-import { roadmapHint } from "@/lib/roadmap";
 
 export default async function CustomerHomePage() {
   const { supabase, profile } = await requireCustomerActor();
@@ -35,12 +34,13 @@ export default async function CustomerHomePage() {
       {activeJob ? (
         <Link
           href={`/customer/jobs/${activeJob.id}`}
-          className="mb-4 block rounded-2xl border border-[var(--line)] bg-white/85 p-4"
+          className="mb-4 block rounded-[1.75rem] bg-white/50 p-2 ring-1 ring-[var(--line)]/50"
         >
-          <p className="text-xs text-[var(--muted)]">งานปัจจุบัน</p>
-          <p className="font-semibold">{activeJob.shop_name}</p>
-          <p className="text-sm">{roadmapHint(activeJob.status, "customer")}</p>
-          <div className="mt-3">
+          <div className="px-3 pt-2">
+            <p className="text-xs text-[var(--muted)]">งานปัจจุบัน</p>
+            <p className="font-semibold">{activeJob.shop_name}</p>
+          </div>
+          <div className="mt-2">
             <JobRoadmap status={activeJob.status} role="customer" />
           </div>
         </Link>
