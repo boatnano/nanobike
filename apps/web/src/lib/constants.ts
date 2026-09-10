@@ -33,7 +33,8 @@ export type JobRoadmapKey = (typeof JOB_ROADMAP)[number]["key"];
 
 export function phoneToAuthEmail(phone: string) {
   const digits = phone.replace(/\D/g, "");
-  return `${digits}@users.nanobike.local`;
+  // Must use a real-looking TLD — Supabase Auth rejects `.local` / `.test` / `.example`.
+  return `${digits}@users.nanobike.app`;
 }
 
 export function normalizePhone(phone: string) {

@@ -66,7 +66,12 @@ function SignupForm() {
       }
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "สมัครไม่สำเร็จ");
+      const raw = err instanceof Error ? err.message : "สมัครไม่สำเร็จ";
+      if (/email address .* is invalid/i.test(raw) || /email_address_invalid/i.test(raw)) {
+        setError("สมัครไม่สำเร็จ — ระบบยืนยันตัวตนยังตั้งค่าไม่ครบ แจ้งแอดมิน");
+      } else {
+        setError(raw);
+      }
     } finally {
       setLoading(false);
     }
