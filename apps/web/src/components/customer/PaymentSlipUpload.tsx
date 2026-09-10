@@ -33,6 +33,15 @@ function CopyButton({ label, value }: { label: string; value: string }) {
   );
 }
 
+function friendlyError(err: unknown) {
+  if (!(err instanceof Error)) return "อัปสลิปไม่สำเร็จ";
+  const msg = err.message || "";
+  if (msg.includes("Minified React error") || msg.includes("digest")) {
+    return "อัปสลิปไม่สำเร็จ — ลองใหม่อีกครั้ง";
+  }
+  return msg;
+}
+
 export function PaymentSlipUpload({
   jobId,
   goodsConfirmed,
@@ -47,10 +56,14 @@ export function PaymentSlipUpload({
   payDeadlineAt: string | null;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const total = Math.round((Number(goodsConfirmed) + Number(deliveryFee || 0)) * 100) / 100;
+  const total =
+    Math.round((Number(goodsConfirmed) + Number(deliveryFee || 0)) * 100) / 100;
   const qrUrl = promptpayId ? promptpayQrUrl(promptpayId, total) : null;
+  const pastDeadline =
+    Boolean(payDeadlineAt) && new Date(payDeadlineAt!).getTime() < Date.now();
 
   return (
     <section className="mt-4 space-y-4 rounded-2xl border-2 border-[var(--ink)] bg-white p-4 text-sm">
@@ -85,7 +98,10 @@ export function PaymentSlipUpload({
               <p className="text-xs text-[var(--muted)]">พร้อมเพย์ไรเดอร์</p>
               <p className="font-semibold tracking-wide">{promptpayId}</p>
             </div>
-            <CopyButton label="คัดลอกเลข" value={promptpayId.replace(/\D/g, "")} />
+            <CopyButton
+              label="คัดลอกเลข"
+              value={promptpayId.replace(/\D/g, "")}
+            />
           </div>
           {qrUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -107,8 +123,12 @@ export function PaymentSlipUpload({
       )}
 
       {payDeadlineAt ? (
-        <p className="text-xs text-[var(--muted)]">
-          โอนภายใน {new Date(payDeadlineAt).toLocaleTimeString("th-TH")}
+        <p
+          className={`text-xs ${pastDeadline ? "text-amber-800" : "text-[var(--muted)]"}`}
+        >
+          {pastDeadline
+            ? "เลยเวลาแนะนำแล้ว — ยังอัปสลิปได้ถ้าไรเดอร์ยังรออยู่"
+            : `โอนภายใน ${new Date(payDeadlineAt).toLocaleTimeString("th-TH")}`}
         </p>
       ) : null}
 
@@ -120,55 +140,58 @@ export function PaymentSlipUpload({
           type="file"
           accept="image/jpeg,image/png,image/webp,image/*"
           capture="environment"
-          disabled={pending}
+          disabled={uploading}
           className="w-full text-sm"
-          onChange={(e) => {
+          onChange={async (e) => {
             const file = e.target.files?.[0];
+            e.target.value = "";
             if (!file) return;
             setError(null);
-            startTransition(async () => {
-              try {
-                if (file.size > 5 * 1024 * 1024) {
-                  throw new Error("ไฟล์ใหญ่เกิน 5MB");
-                }
-                const supabase = createClient();
-                const {
-                  data: { user },
-                } = await supabase.auth.getUser();
-                if (!user) throw new Error("กรุณาเข้าสู่ระบบใหม่");
-
-                const ext =
-                  file.type === "image/png"
-                    ? "png"
-                    : file.type === "image/webp"
-                      ? "webp"
-                      : "jpg";
-                const path = `${user.id}/${jobId}/${Date.now()}.${ext}`;
-                const { error: uploadError } = await supabase.storage
-                  .from("job-proofs")
-                  .upload(path, file, {
-                    cacheControl: "3600",
-                    upsert: false,
-                    contentType: file.type || "image/jpeg",
-                  });
-                if (uploadError) throw new Error(uploadError.message);
-
-                const { data: pub } = supabase.storage
-                  .from("job-proofs")
-                  .getPublicUrl(path);
-
-                await submitPaymentSlip(jobId, pub.publicUrl);
-                router.refresh();
-              } catch (err) {
-                setError(
-                  err instanceof Error ? err.message : "อัปสลิปไม่สำเร็จ",
-                );
+            setUploading(true);
+            try {
+              if (file.size > 5 * 1024 * 1024) {
+                throw new Error("ไฟล์ใหญ่เกิน 5MB");
               }
-            });
+              const supabase = createClient();
+              const {
+                data: { user },
+              } = await supabase.auth.getUser();
+              if (!user) throw new Error("กรุณาเข้าสู่ระบบใหม่");
+
+              const mime = file.type || "image/jpeg";
+              const ext =
+                mime === "image/png"
+                  ? "png"
+                  : mime === "image/webp"
+                    ? "webp"
+                    : "jpg";
+              const path = `${user.id}/${jobId}/${Date.now()}.${ext}`;
+              const { error: uploadError } = await supabase.storage
+                .from("job-proofs")
+                .upload(path, file, {
+                  cacheControl: "3600",
+                  upsert: false,
+                  contentType: mime,
+                });
+              if (uploadError) throw new Error(uploadError.message);
+
+              const { data: pub } = supabase.storage
+                .from("job-proofs")
+                .getPublicUrl(path);
+
+              await submitPaymentSlip(jobId, pub.publicUrl);
+              startTransition(() => {
+                router.refresh();
+              });
+            } catch (err) {
+              setError(friendlyError(err));
+            } finally {
+              setUploading(false);
+            }
           }}
         />
       </label>
-      {pending ? (
+      {uploading ? (
         <p className="text-xs text-[var(--muted)]">กำลังอัปโหลดสลิป...</p>
       ) : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}

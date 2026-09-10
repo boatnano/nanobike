@@ -432,12 +432,6 @@ export async function submitPaymentSlip(jobId: string, slipUrl: string) {
   if (job.status !== "awaiting_payment") {
     throw new Error("อัปสลิปได้ตอนรอโอนเงินเท่านั้น");
   }
-  if (
-    job.pay_deadline_at &&
-    new Date(job.pay_deadline_at).getTime() < Date.now()
-  ) {
-    throw new Error("หมดเวลาโอนเงินแล้ว");
-  }
 
   const { error: updateError } = await supabase
     .from("jobs")
@@ -455,7 +449,12 @@ export async function submitPaymentSlip(jobId: string, slipUrl: string) {
     job_id: jobId,
     actor_id: profile.id,
     event_type: "payment_slip_uploaded",
-    payload: { payment_slip_url: slipUrl.trim() },
+    payload: {
+      payment_slip_url: slipUrl.trim(),
+      late_payment:
+        Boolean(job.pay_deadline_at) &&
+        new Date(job.pay_deadline_at).getTime() < Date.now(),
+    },
   });
 
   revalidatePath("/customer/jobs");
